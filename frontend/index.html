@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 지식 도우미 (RAG)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style> body { font-family: 'Malgun Gothic', system-ui, sans-serif; } </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-2xl mx-auto p-6">
+    <header class="mb-5">
+      <h1 class="text-2xl font-bold text-slate-800">내 문서로 답하는 AI 지식 도우미</h1>
+      <p class="text-slate-500 mt-1">업로드한 문서의 내용만 근거로 답합니다. 자료에 없으면 "자료에 없습니다"라고 답해 환각을 막습니다.</p>
+    </header>
+
+    <div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+      <h2 class="text-sm font-semibold text-slate-700 mb-2">① 문서 업로드</h2>
+      <input id="title" placeholder="문서 제목" class="border border-slate-300 rounded-lg px-3 py-2 w-full mb-2" />
+      <textarea id="text" rows="4" placeholder="문서 내용을 붙여넣으세요" class="border border-slate-300 rounded-lg px-3 py-2 w-full text-sm"></textarea>
+      <div class="flex items-center gap-3 mt-2">
+        <button id="up" class="bg-teal-600 text-white rounded-lg px-4 py-2 font-semibold hover:bg-teal-700">문서 색인</button>
+        <span id="docs" class="text-xs text-slate-500"></span>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+      <h2 class="text-sm font-semibold text-slate-700 mb-2">② 질문</h2>
+      <div class="flex gap-2">
+        <input id="q" placeholder="문서에 대해 질문하세요" class="border border-slate-300 rounded-lg px-3 py-2 flex-1" />
+        <button id="ask" class="bg-indigo-600 text-white rounded-lg px-4 py-2 font-semibold hover:bg-indigo-700">질문</button>
+      </div>
+    </div>
+
+    <div id="answer"></div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3003/api';
+    async function loadDocs() {
+      const d = await (await fetch(`${API}/documents`)).json();
+      document.getElementById('docs').textContent = `색인된 문서: ${d.length}개`;
+    }
+    document.getElementById('up').onclick = async () => {
+      const title = document.getElementById('title').value || '문서';
+      const text = document.getElementById('text').value;
+      if (!text) return;
+      document.getElementById('docs').textContent = '색인 중…';
+      await fetch(`${API}/documents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, text }) });
+      document.getElementById('text').value = '';
+      loadDocs();
+    };
+    document.getElementById('ask').onclick = async () => {
+      const question = document.getElementById('q').value.trim();
+      if (!question) return;
+      const box = document.getElementById('answer');
+      box.innerHTML = '<div class="text-center text-indigo-600 py-4 animate-pulse">🔎 관련 조각 검색 → 근거로 답변 생성 중…</div>';
+      const r = await (await fetch(`${API}/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) })).json();
+      const notFound = (r.answer || '').includes('자료에 없습니다');
+      const sources = (r.sources || []).map(s => `
+        <div class="text-xs bg-slate-50 border border-slate-200 rounded p-2 mt-1">
+          <span class="font-semibold text-slate-600">📄 ${s.doc} · ${s.position}번째 조각</span>
+          <span class="text-teal-600">유사도 ${s.similarity}%</span>
+          <div class="text-slate-500 mt-0.5">"${s.preview}…"</div>
+        </div>`).join('');
+      box.innerHTML = `
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="text-xs text-slate-400 mb-1">질문</div>
+          <div class="font-semibold text-slate-800 mb-3">${question}</div>
+          <div class="text-xs text-slate-400 mb-1">답변</div>
+          <div class="${notFound ? 'text-amber-600' : 'text-slate-800'} whitespace-pre-line leading-relaxed">${notFound ? '⚠️ ' : ''}${r.answer}</div>
+          ${sources ? `<div class="mt-4"><div class="text-xs text-slate-400 mb-1">근거 출처</div>${sources}</div>` : (notFound ? '<div class="mt-3 text-xs text-slate-400">관련 자료가 없어 지어내지 않고 솔직히 답했습니다.</div>' : '')}
+        </div>`;
+    };
+    loadDocs();
+  </script>
+</body>
+</html>

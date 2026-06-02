@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 원본 문서
+model Document {
+  id        Int      @id @default(autoincrement())
+  title     String
+  createdAt DateTime @default(now())
+  chunks    Chunk[]
+}
+
+// 문서 조각(청크) + 의미 좌표(임베딩)
+// 로컬 실행 편의를 위해 SQLite 사용. 임베딩은 JSON 문자열로 저장하고, 검색은 코사인 유사도로 한다.
+model Chunk {
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String // 잘린 문서 조각 원문
+  embedding  String // 의미 좌표 (JSON 배열 문자열)
+  position   Int // 문서 내 순서 (출처 표시용)
+}
