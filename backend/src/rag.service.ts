@@ -59,6 +59,12 @@ export class RagService {
 
     const context = ranked.map((r) => r.c.content).join('\n---\n');
     const answer = await generate(question, context);
+
+    // 모델이 '자료에 없음'으로 판단하면, 오해를 주는 출처는 표시하지 않는다(환각 방지의 연장).
+    if (/자료에 없습니다/.test(answer)) {
+      return { answer: '자료에 없습니다.', sources: [], topSim: ranked[0].sim };
+    }
+
     const sources = ranked.map((r) => ({
       doc: r.c.document.title,
       position: r.c.position,

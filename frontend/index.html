@@ -22,6 +22,7 @@
         <button id="up" class="bg-teal-600 text-white rounded-lg px-4 py-2 font-semibold hover:bg-teal-700">문서 색인</button>
         <span id="docs" class="text-xs text-slate-500"></span>
       </div>
+      <div id="docList" class="mt-3 space-y-1"></div>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm p-5 mb-4">
@@ -40,6 +41,11 @@
     async function loadDocs() {
       const d = await (await fetch(`${API}/documents`)).json();
       document.getElementById('docs').textContent = `색인된 문서: ${d.length}개`;
+      document.getElementById('docList').innerHTML = d.map(doc => `
+        <div class="flex items-center justify-between text-xs bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+          <span class="font-semibold text-teal-800">📄 ${doc.title}</span>
+          <span class="text-teal-600">${doc._count?.chunks ?? 0}개 조각으로 색인됨</span>
+        </div>`).join('');
     }
     document.getElementById('up').onclick = async () => {
       const title = document.getElementById('title').value || '문서';
