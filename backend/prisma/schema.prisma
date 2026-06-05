@@ -15,6 +15,15 @@ model Document {
   chunks    Chunk[]
 }
 
+// 질문 로그 — 운영 리포트(질문 수·답 못 한 질문)용
+model Query {
+  id        Int      @id @default(autoincrement())
+  question  String
+  answered  Boolean  @default(true) // '자료에 없습니다'면 false
+  topSim    Float    @default(0)
+  createdAt DateTime @default(now())
+}
+
 // 문서 조각(청크) + 의미 좌표(임베딩)
 // 로컬 실행 편의를 위해 SQLite 사용. 임베딩은 JSON 문자열로 저장하고, 검색은 코사인 유사도로 한다.
 model Chunk {

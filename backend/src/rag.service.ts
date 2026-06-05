@@ -41,6 +41,27 @@ export class RagService {
     });
   }
 
+  // 운영 리포트: 문서 수·질문 수·답 못 한 질문·예상 비용
+  async stats() {
+    const docs = await this.prisma.document.count();
+    const chunks = await this.prisma.chunk.count();
+    const queries = await this.prisma.query.findMany({ orderBy: { id: 'desc' } });
+    const answered = queries.filter((q) => q.answered).length;
+    const unanswered = queries.filter((q) => !q.answered);
+    // 질문당 임베딩+생성 대략 비용(추정): 약 $0.0003 → 원화 환산(1$=1400원 가정)
+    const costUsd = +(queries.length * 0.0003).toFixed(4);
+    return {
+      docs,
+      chunks,
+      totalQueries: queries.length,
+      answered,
+      answerRate: queries.length ? Math.round((answered / queries.length) * 100) : 0,
+      estCostUsd: costUsd,
+      estCostKrw: Math.round(costUsd * 1400),
+      unanswered: unanswered.slice(0, 8).map((q) => q.question),
+    };
+  }
+
   // 질문 → 가까운 조각 검색 → 근거로만 답변
   async ask(question: string) {
     const qVec = await embed(question);
@@ -54,6 +75,7 @@ export class RagService {
 
     // 가장 가까운 조각도 기준 미만이면 '자료 없음'
     if (!ranked.length || ranked[0].sim < SIM_THRESHOLD) {
+      await this.prisma.query.create({ data: { question, answered: false, topSim: ranked[0]?.sim ?? 0 } });
       return { answer: '자료에 없습니다.', sources: [], topSim: ranked[0]?.sim ?? 0 };
     }
 
@@ -62,8 +84,10 @@ export class RagService {
 
     // 모델이 '자료에 없음'으로 판단하면, 오해를 주는 출처는 표시하지 않는다(환각 방지의 연장).
     if (/자료에 없습니다/.test(answer)) {
+      await this.prisma.query.create({ data: { question, answered: false, topSim: ranked[0].sim } });
       return { answer: '자료에 없습니다.', sources: [], topSim: ranked[0].sim };
     }
+    await this.prisma.query.create({ data: { question, answered: true, topSim: ranked[0].sim } });
 
     const sources = ranked.map((r) => ({
       doc: r.c.document.title,

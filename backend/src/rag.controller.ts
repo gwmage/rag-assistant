@@ -24,6 +24,11 @@ export class RagController {
     return this.rag.listDocuments();
   }
 
+  @Get('stats')
+  stats() {
+    return this.rag.stats();
+  }
+
   @Post('ask')
   ask(@Body() dto: AskDto) {
     return this.rag.ask(dto.question);
